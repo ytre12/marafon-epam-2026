@@ -1,4 +1,33 @@
-# Доробки ресторанного застосунку у межах IT марафону від EPAM
+# Green & Tasty
+
+<p align="center">
+  <img alt="Angular 22" src="https://img.shields.io/badge/Angular-22-DD0031?style=for-the-badge&amp;labelColor=1F2937&amp;logo=angular&amp;logoColor=white" />
+  <img alt="TypeScript 6" src="https://img.shields.io/badge/TypeScript-6-3178C6?style=for-the-badge&amp;labelColor=1F2937&amp;logo=typescript&amp;logoColor=white" />
+  <img alt="RxJS 7" src="https://img.shields.io/badge/RxJS-7-B7178C?style=for-the-badge&amp;labelColor=1F2937&amp;logo=reactivex&amp;logoColor=white" />
+  <img alt="HTML5" src="https://img.shields.io/badge/HTML5-E34F26?style=for-the-badge&amp;labelColor=1F2937&amp;logo=html5&amp;logoColor=white" />
+  <img alt="SCSS" src="https://img.shields.io/badge/SCSS-CC6699?style=for-the-badge&amp;labelColor=1F2937&amp;logo=sass&amp;logoColor=white" />
+  <img alt="C#" src="https://img.shields.io/badge/C%23-512BD4?style=for-the-badge&amp;labelColor=1F2937" />
+  <img alt="REST API" src="https://img.shields.io/badge/REST%20API-009688?style=for-the-badge&amp;labelColor=1F2937" />
+  <br />
+  <img alt="Lambda" src="https://img.shields.io/badge/Lambda-FF9900?style=for-the-badge&amp;labelColor=1F2937" />
+  <img alt="API Gateway" src="https://img.shields.io/badge/API%20Gateway-8C4FFF?style=for-the-badge&amp;labelColor=1F2937" />
+  <img alt="DynamoDB" src="https://img.shields.io/badge/DynamoDB-4053D6?style=for-the-badge&amp;labelColor=1F2937" />
+  <img alt="S3" src="https://img.shields.io/badge/S3-569A31?style=for-the-badge&amp;labelColor=1F2937" />
+  <img alt="CloudFront" src="https://img.shields.io/badge/CloudFront-8C4FFF?style=for-the-badge&amp;labelColor=1F2937" />
+  <img alt="Cognito" src="https://img.shields.io/badge/Cognito-DD344C?style=for-the-badge&amp;labelColor=1F2937" />
+  <img alt="SQS" src="https://img.shields.io/badge/SQS-FF4F8B?style=for-the-badge&amp;labelColor=1F2937" />
+  <img alt="SES" src="https://img.shields.io/badge/SES-DD344C?style=for-the-badge&amp;labelColor=1F2937" />
+  <img alt="IAM" src="https://img.shields.io/badge/IAM-DD344C?style=for-the-badge&amp;labelColor=1F2937" />
+  <img alt="CloudWatch" src="https://img.shields.io/badge/CloudWatch-FF4F8B?style=for-the-badge&amp;labelColor=1F2937" />
+  <br />
+  <img alt="Terraform" src="https://img.shields.io/badge/Terraform-844FBA?style=for-the-badge&amp;labelColor=1F2937&amp;logo=terraform&amp;logoColor=white" />
+  <img alt="AWS Syndicate" src="https://img.shields.io/badge/AWS%20Syndicate-FF9900?style=for-the-badge&amp;labelColor=1F2937" />
+  <img alt="Python 3.11" src="https://img.shields.io/badge/Python-3.11-3776AB?style=for-the-badge&amp;labelColor=1F2937&amp;logo=python&amp;logoColor=white" />
+  <img alt="Node.js" src="https://img.shields.io/badge/Node.js-339933?style=for-the-badge&amp;labelColor=1F2937&amp;logo=nodedotjs&amp;logoColor=white" />
+  <img alt="npm" src="https://img.shields.io/badge/npm-CB3837?style=for-the-badge&amp;labelColor=1F2937&amp;logo=npm&amp;logoColor=white" />
+</p>
+
+## Доробки ресторанного застосунку у межах IT марафону від EPAM
 
 Цей документ описує зміни, внесені до отриманого навчального проєкту ресторанного застосунку. Початкова версія вже містила Angular-фронтенд, бекенд на C# / .NET, роботу з бронюваннями й передзамовленнями та конфігурацію AWS. Під час доопрацювання розширено групові передзамовлення, додано двомовний інтерфейс, покращено перегляд страв і керування бронюваннями, виправлено переходи з кошика та обмежено паралельне завантаження відгуків.
 
