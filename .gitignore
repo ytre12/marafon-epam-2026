@@ -1,0 +1,44 @@
+
+# macOS
+.DS_Store
+
+# Dependencies and build output
+node_modules/
+dist/
+.angular/
+coverage/
+bin/
+obj/
+syndicate_venv/
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.log
+
+# Local secrets and credentials
+.env
+.env.*
+!.env.example
+.aws/
+*.pem
+*.pfx
+*.key
+
+# Generated production configuration
+frontend/restaurant-frontend-app/src/environments/environment.production.ts
+
+# Terraform local files and state
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfvars
+*.tfvars.json
+crash.log
+
+# Syndicate local configuration and deployment output
+.syndicate
+.syndicate-config-*/
+bundles/
+logs/

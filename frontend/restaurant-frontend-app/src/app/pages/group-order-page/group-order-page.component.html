@@ -1,0 +1,200 @@
+<main class="group-page">
+  <a routerLink="/reservations">{{ '← My reservations' | translate }}</a>
+  <header>
+    <div>
+      <h1>{{ 'Group pre-order' | translate }}</h1>
+      <p>{{ 'Choose dishes together, then send one order to your waiter.' | translate }}</p>
+    </div>
+    <button type="button" (click)="refresh()" [disabled]="loading() || busy()">
+      {{ 'Refresh participants' | translate }}
+    </button>
+  </header>
+  @if (loading()) {
+    <p role="status">{{ 'Loading group…' | translate }}</p>
+  }
+  @if (error()) {
+    <p class="notice error" role="alert">{{ error() }}</p>
+  }
+  @if (message()) {
+    <p class="notice" role="status">{{ 'Group order confirmed. Total:' | translate }} {{ confirmedTotal() | currency: 'USD' }}. {{ 'Your waiter can now review it.' | translate }}</p>
+  }
+  @if (owner(); as group) {
+    @if (!editable()) {
+      <p class="notice">
+        {{
+          group.status === 'Submitted'
+            ? ('This group order has been confirmed. Changes are locked.' | translate)
+            : ('Pre-order editing is closed. Orders close 30 minutes before the reservation.' | translate)
+        }}
+      </p>
+    } @else {
+      <section class="invite">
+        <label for="group-invite">{{ 'Invite your guests' | translate }}</label>
+        <input
+          id="group-invite"
+          type="text"
+          readonly
+          [value]="inviteLink()"
+          aria-describedby="invite-help"
+        />
+        <small id="invite-help"
+          >{{ 'Copy this link and share it with your group. Refresh to see their latest choices.' | translate }}</small
+        >
+      </section>
+    }
+    <div class="layout">
+      <section aria-labelledby="participants-heading">
+        <h2 id="participants-heading">{{ 'Participants (' | translate }}{{ snapshot().participants.length }})</h2>
+        @for (person of snapshot().participants; track person.id) {
+          <article class="participant">
+            <div class="row">
+              <h3>{{ person.name }} {{ person.type === 'Owner' ? ('(organizer)' | translate) : '' }}</h3>
+              <span class="badge" [class.ready]="person.isSubmitted">{{
+                person.isSubmitted ? ('Submitted' | translate) : ('Not submitted' | translate)
+              }}</span>
+            </div>
+            @if (person.items.length) {
+              <ul>
+                @for (item of person.items; track item.dish.id) {
+                  <li>
+                    <span>{{ item.quantity }} × {{ item.dish.name }}</span
+                    ><span>{{ item.quantity * item.dish.price | currency: 'USD' }}</span>
+                  </li>
+                }
+              </ul>
+            } @else {
+              <p>{{ 'No dishes selected yet.' | translate }}</p>
+            }
+            <div class="row">
+              <strong>{{ person.total | currency: 'USD' }}</strong>
+              @if (editable() && person.type === 'Guest') {
+                <button
+                  class="danger"
+                  type="button"
+                  (click)="removeTarget.set(person)"
+                  [disabled]="busy() || loading()"
+                >
+                  {{ 'Remove guest' | translate }}
+                </button>
+              }
+            </div>
+          </article>
+        } @empty {
+          <p>{{ 'No participants loaded yet.' | translate }}</p>
+        }
+      </section>
+      <aside>
+        <h2>{{ 'Order summary' | translate }}</h2>
+        <p class="row">
+          <span>{{ 'All selected dishes' | translate }}</span><strong>{{ snapshot().total | currency: 'USD' }}</strong>
+        </p>
+        <p class="row">
+          <span>{{ 'Submitted carts only' | translate }}</span><strong>{{ submittedTotal() | currency: 'USD' }}</strong>
+        </p>
+        <p>
+          {{ pendingCount() }} {{ 'participant(s) have not submitted. Their dishes will be excluded.' | translate }}
+        </p>
+        <button
+          class="primary"
+          type="button"
+          (click)="confirmSubmit.set(true)"
+          [disabled]="!editable() || !submittedCount() || busy() || loading()"
+        >
+          {{ 'Confirm group order' | translate }}
+        </button>
+      </aside>
+    </div>
+    @if (editable()) {
+      <section aria-labelledby="my-dishes-heading">
+        <h2 id="my-dishes-heading">{{ 'My dishes' | translate }}</h2>
+        @if (ownCart()?.isSubmitted) {
+          <p class="notice">
+            {{ 'Your cart is submitted and included in the group total. You can now confirm the group order.' | translate }}
+          </p>
+        } @else {
+          <p>{{ 'Add your dishes and submit your cart before confirming the whole group.' | translate }}</p>
+          <div class="menu">
+            @for (dish of menu(); track dish.id) {
+              <article class="dish">
+                <h3>{{ dish.name }}</h3>
+                <p>{{ dish.description }}</p>
+                <strong>{{ dish.price | currency: 'USD' }}</strong>
+                <div class="quantity">
+                  <button
+                    type="button"
+                    [attr.aria-label]="'Remove one ' + dish.name"
+                    (click)="changeDish(dish.id, false)"
+                    [disabled]="!quantity(dish.id) || busy() || loading()"
+                  >
+                    −
+                  </button>
+                  <span aria-live="polite">{{ quantity(dish.id) }}</span>
+                  <button
+                    type="button"
+                    [attr.aria-label]="'Add one ' + dish.name"
+                    (click)="changeDish(dish.id, true)"
+                    [disabled]="!dish.selectable || busy() || loading()"
+                  >
+                    +
+                  </button>
+                </div>
+                @if (!dish.selectable) {
+                  <small>{{ 'Currently unavailable' | translate }}</small>
+                }
+              </article>
+            } @empty {
+              <p>{{ 'No dishes are available at this location.' | translate }}</p>
+            }
+          </div>
+          <button
+            class="primary"
+            type="button"
+            (click)="submitOwnCart()"
+            [disabled]="!ownCart()?.items?.length || busy() || loading()"
+          >
+            {{ 'Submit my cart' | translate }}
+          </button>
+        }
+      </section>
+    }
+    @if (removeTarget(); as target) {
+      <section class="confirmation" role="region" [attr.aria-label]="'Confirm guest removal' | translate">
+        <h2>{{ 'Remove' | translate }} {{ target.name }}?</h2>
+        <p>
+          {{ 'Their dishes will be removed from the group total. Their current guest session will stop working.' | translate }}
+        </p>
+        <button type="button" (click)="removeTarget.set(null)" [disabled]="busy()">
+          {{ 'Keep guest' | translate }}
+        </button>
+        <button
+          class="danger"
+          type="button"
+          (click)="removeGuest()"
+          [disabled]="busy() || loading()"
+        >
+          {{ 'Remove guest and dishes' | translate }}
+        </button>
+      </section>
+    }
+    @if (confirmSubmit()) {
+      <section class="confirmation" role="region" [attr.aria-label]="'Confirm group order' | translate">
+        <h2>{{ 'Send the group order?' | translate }}</h2>
+        <p>
+          {{ 'Only submitted carts are included:' | translate }} {{ submittedTotal() | currency: 'USD' }}.
+          {{ pendingCount() }} {{ 'unsubmitted cart(s) will be excluded. After confirmation, nobody can change their dishes or remove participants.' | translate }}
+        </p>
+        <button type="button" (click)="confirmSubmit.set(false)" [disabled]="busy()">
+          {{ 'Go back' | translate }}
+        </button>
+        <button
+          class="primary"
+          type="button"
+          (click)="submitGroup()"
+          [disabled]="busy() || loading()"
+        >
+          {{ 'Confirm and send' | translate }}
+        </button>
+      </section>
+    }
+  }
+</main>

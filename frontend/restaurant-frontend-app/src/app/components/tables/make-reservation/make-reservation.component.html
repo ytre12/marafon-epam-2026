@@ -1,0 +1,72 @@
+<div class="modal-backdrop" role="presentation" (click)="onClose()">
+  <div class="modal-container" role="presentation" (click)="$event.stopPropagation()">
+    <div>
+      <div class="modal-header">
+        <h2 class="title">{{ title }}</h2>
+        <button class="close-btn" (click)="onClose()">
+          <img src="assets/svg/close.svg" [alt]="'close button' | translate" />
+        </button>
+      </div>
+
+      <p class="subtitle">
+        {{ 'You are making a reservation at' | translate }}
+        <span class="body-bold">{{ locationName }}{{ ', Table' | translate }} {{ table.tableNumber }}</span>
+        {{ 'for' | translate }} <span class="body-bold">{{ selectedTimeRange.start | localizedDate: 'MMM d, y' }}</span
+        >.
+      </p>
+    </div>
+
+    <div class="reservation-details">
+      <div class="reservation-guests">
+        <div>
+          <h3>{{ 'Guests' | translate }}</h3>
+          <p class="subtitle">{{ 'Please specify the number of guests.' | translate }}</p>
+          <p class="subtitle">{{ 'Table seating capacity:' | translate }} {{ table.capacity }} {{ 'people' | translate }}</p>
+        </div>
+
+        <app-custom-number
+          class="guests-filter"
+          [currentValue]="guests"
+          [iconPath]="'assets/svg/people-green.svg'"
+          [placeholder]="('Guests' | translate)"
+          [minValue]="1"
+          [maxValue]="table.capacity"
+          (currentValueChange)="onGuestsChange($event)"
+        />
+      </div>
+
+      <div class="reservation-time">
+        <div>
+          <h3>{{ 'Time' | translate }}</h3>
+          <p class="subtitle">{{ 'Please choose your preferred time from the dropdowns below' | translate }}</p>
+        </div>
+
+        <div class="time-selectors">
+          <div class="time-selector">
+            <p class="body-bold">{{ 'From' | translate }}</p>
+            <app-custom-select
+              [selectedOption]="selectStartTime()"
+              [iconPath]="'assets/svg/clock-green.svg'"
+              [placeholder]="('From' | translate)"
+              [options]="startTimeOptions()"
+              (optionSelected)="onStartTimeChange($event)"
+            />
+          </div>
+
+          <div class="time-selector">
+            <p class="body-bold">{{ 'To' | translate }}</p>
+            <app-custom-select
+              [selectedOption]="selectEndTime()"
+              [iconPath]="'assets/svg/clock-green.svg'"
+              [placeholder]="('To' | translate)"
+              [options]="endTimeOptions()"
+              (optionSelected)="onEndTimeChange($event)"
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <app-custom-button (click)="onMakeReservation()">{{ title }}</app-custom-button>
+  </div>
+</div>

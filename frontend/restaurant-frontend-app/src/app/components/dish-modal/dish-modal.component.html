@@ -1,0 +1,22 @@
+<div class="modal-overlay" aria-hidden="true" (click)="onClose()"></div>
+<section class="modal-content" role="dialog" aria-modal="true" aria-labelledby="dish-details-title"
+  cdkTrapFocus [cdkTrapFocusAutoCapture]="true">
+  <button type="button" class="close-button" cdkFocusInitial [attr.aria-label]="'Close' | translate" (click)="onClose()">×</button>
+  <img class="dish-image" [src]="dish.imageUrl || 'assets/img/dish.png'" [alt]="dish.name" />
+  <h2 id="dish-details-title" class="dish-name">{{ dish.name }}</h2>
+  @if (loading()) {
+    <p role="status">{{ 'Loading dish details...' | translate }}</p>
+  } @else if (failed()) {
+    <p role="alert">Unable to load dish details. Please close this window and try again.</p>
+  } @else if (details(); as data) {
+    <div class="dish-info">
+      @if (data.description) { <p class="dish-description">{{ data.description }}</p> }
+      <p><strong>{{ 'Calories:' | translate }}</strong> {{ nutrition(data.calories, ('kcal' | translate)) || ('Not provided' | translate) }}</p>
+      <p><strong>{{ 'Protein:' | translate }}</strong> {{ nutrition(data.proteins, ('g' | translate)) || ('Not provided' | translate) }}</p>
+      <p><strong>{{ 'Fats:' | translate }}</strong> {{ nutrition(data.fats, ('g' | translate)) || ('Not provided' | translate) }}</p>
+      <p><strong>{{ 'Carbohydrates:' | translate }}</strong> {{ nutrition(data.carbohydrates, ('g' | translate)) || ('Not provided' | translate) }}</p>
+      <p><strong>{{ 'Vitamins and minerals:' | translate }}</strong> {{ data.vitamins || ('Not provided' | translate) }}</p>
+    </div>
+    <div class="price-weight"><span>{{ data.price | currency: 'USD' }}</span><span>{{ data.weight }}</span></div>
+  }
+</section>

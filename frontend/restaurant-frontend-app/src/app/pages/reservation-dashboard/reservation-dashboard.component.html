@@ -1,0 +1,124 @@
+<app-header />
+
+<div class="subheading">
+  <h3>
+    {{ 'Hello,' | translate }} {{ firstName() }} {{ lastName() }}
+    ({{ role() }})
+  </h3>
+</div>
+
+@if (!reservationsLoaded()) {
+  <p class="reservation-empty">
+    {{ 'Please wait while we load your reservations.' | translate }}
+  </p>
+} @else if (reservations().length > 0) {
+  <section class="reservation-filters" [attr.aria-label]="'Reservation filters' | translate">
+    <label for="reservation-status">{{ 'Reservation status' | translate }}
+      <select id="reservation-status" [value]="statusFilter()" (change)="changeStatusFilter($event)">
+        <option value="all">{{ 'All statuses' | translate }}</option>
+        @for (option of statusOptions; track option.value) {
+          <option [value]="option.value">{{ option.label | translate }}</option>
+        }
+      </select>
+    </label>
+    <label for="reservation-type">{{ 'Reservation type' | translate }}
+      <select id="reservation-type" [value]="typeFilter()" (change)="changeTypeFilter($event)">
+        <option value="all">{{ 'All types' | translate }}</option>
+        <option value="group">{{ 'Group (2 or more guests)' | translate }}</option>
+        <option value="single">{{ 'Individual (1 guest)' | translate }}</option>
+      </select>
+    </label>
+    <label for="reservation-sort">{{ 'Sort by:' | translate }}
+      <select id="reservation-sort" [value]="sortOrder()" (change)="changeSortOrder($event)">
+        <option value="default">{{ 'Default order' | translate }}</option>
+        <option value="status">{{ 'Reservation status' | translate }}</option>
+        <option value="group">{{ 'Group first' | translate }}</option>
+        <option value="single">{{ 'Individual first' | translate }}</option>
+      </select>
+    </label>
+    <button type="button" class="button button--secondary button--small" (click)="resetFilters()">{{ 'Reset filters' | translate }}</button>
+    <span class="result-count" role="status">{{ 'Found:' | translate }} {{ visibleReservations().length }} / {{ reservations().length }}</span>
+  </section>
+  @if (visibleReservations().length === 0) {
+    <p class="reservation-empty">{{ 'No reservations match these filters.' | translate }}</p>
+  }
+  <ul class="reservation-list">
+    @for (reservation of visibleReservations(); track reservation.id) {
+      <app-card-reservation
+        [r]="reservation"
+        [role]="role()"
+        [statusEnum]="statusEnum"
+        (cancelReservation)="cancelReservation($event)"
+        (editReservation)="openEditModal($event)"
+        (leaveFeedbackReservation)="openFeedback($event)"
+        (updateFeedbackReservation)="openFeedback($event)"
+      />
+    }
+  </ul>
+} @else {
+  <div class="reservation-empty">
+    <img
+      src="assets/svg/empty-reservations.svg"
+      alt=""
+      aria-hidden="true"
+    />
+
+    <p>{{ 'It looks like you don\'t have any reservations.' | translate }}</p>
+
+    <a
+      class="button button--primary button--large"
+      routerLink="/tables"
+    >
+      {{ 'Book a table' | translate }}
+    </a>
+  </div>
+}
+
+@if (
+  showEditReservationModal() &&
+  selectedReservation() &&
+  selectedTable() &&
+  selectedTimeRange()
+  ) {
+  <app-make-reservation
+    [title]="'Edit Reservation' | translate"
+    [table]="selectedTable()!"
+    [guests]="selectedReservation()!.guestCount"
+    [selectedTimeRange]="selectedTimeRange()!"
+    [locationName]="selectedReservation()!.locationAddress"
+    (makeReservation)="
+      onSubmitEditReservation(
+        $event.timeRange,
+        $event.guests
+      )
+    "
+    (closeModal)="closeEditReservationModal()"
+  />
+}
+
+@if (
+  showEditReservationConfirmed() &&
+  selectedReservationAsReservation()
+  ) {
+  <app-reservation-confirmed
+    [reservation]="selectedReservationAsReservation()!"
+    (closed)="closeReservationConfirmed()"
+    (editReservation)="editConfirmedReservation()"
+    (cancelReservation)="cancelConfirmedReservation()"
+  />
+}
+
+@if (
+  showFeedbackModal() &&
+  selectedReservation() &&
+  selectedReservationAsReservation()
+  ) {
+  <app-feedback-window
+    [feedbackForUpdate]="selectedReservation()!.feedback"
+    [selectedReservation]="
+      selectedReservationAsReservation()!
+    "
+    (feedbackUpdated)="onFeedbackUpdated($event)"
+    (closedFeedback)="closeFeedback()"
+  />
+}

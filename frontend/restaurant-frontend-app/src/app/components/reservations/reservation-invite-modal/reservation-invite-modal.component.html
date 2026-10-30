@@ -1,0 +1,57 @@
+<app-modal [title]="'Reservation Confirmed' | translate" (closed)="onClose()">
+  <dl class="info">
+    <div class="info-row">
+      <dt>{{ 'Location' | translate }}</dt>
+      <dd>{{ reservation().locationAddress }}</dd>
+    </div>
+    <div class="info-row">
+      <dt>{{ 'Date' | translate }}</dt>
+      <dd>{{ reservation().startTime | localizedDate: 'MMM d, y' }}</dd>
+    </div>
+    <div class="info-row">
+      <dt>{{ 'Time' | translate }}</dt>
+      <dd>
+        {{ reservation().startTime | localizedDate: 'HH:mm' }} - {{ reservation().endTime | localizedDate: 'HH:mm' }}
+      </dd>
+    </div>
+    <div class="info-row">
+      <dt>{{ 'Guests' | translate }}</dt>
+      <dd>{{ reservation().guestCount }} {{ (reservation().guestCount === 1 ? 'person' : 'people') | translate }}</dd>
+    </div>
+  </dl>
+
+  @if (showInviteField()) {
+    <div class="invite">
+      <hr class="divider" />
+      <div class="invite-field">
+        <label class="invite-label" for="invite-link-input">{{ 'Invite Link' | translate }}</label>
+        <div class="invite-input">
+          <input
+            id="invite-link-input"
+            type="text"
+            readonly
+            [placeholder]="invitePlaceholder() | translate"
+            [value]="inviteLink() ?? ''"
+          />
+          <button
+            type="button"
+            class="icon-button icon-button--small"
+            [attr.aria-label]="'Copy invite link' | translate"
+            [disabled]="!inviteLink()"
+            (click)="onCopyLink()"
+          >
+            <img src="assets/svg/copy.svg" alt="" />
+          </button>
+        </div>
+        <p class="invite-hint">{{ 'You are able to share this link for pre-order with your group.' | translate }}</p>
+      </div>
+    </div>
+  }
+
+  <div modal-actions class="actions">
+    <button type="button" class="button button--secondary button--full-width view-reservation-btn" (click)="onViewReservation()">
+      {{ 'View Reservation' | translate }}
+    </button>
+    <button type="button" class="button button--primary button--full-width pre-order-btn" (click)="onMakePreOrder()">{{ 'Make Pre-Order' | translate }}</button>
+  </div>
+</app-modal>

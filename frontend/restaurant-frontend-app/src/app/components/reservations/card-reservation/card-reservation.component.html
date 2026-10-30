@@ -1,0 +1,295 @@
+<li class="card">
+  <div class="details-wrapper">
+    <div class="details-line with-table">
+      <div class="details">
+        <img
+          class="line-icon"
+          src="assets/svg/location-green.svg"
+          alt=""
+          aria-hidden="true"
+        />
+
+        {{ r().locationAddress }}
+      </div>
+
+      @if (role() === Roles.WAITER) {
+        <div class="change-table">
+          <app-custom-select
+            class="table-select"
+            [placeholder]="'Table' | translate"
+            [showIcon]="false"
+            [options]="availableTableOptions()"
+            [selectedOption]="displayedTableLabel()"
+            (optionSelected)="onTableChange($event)"
+          />
+        </div>
+      }
+
+      @if (role() === Roles.CUSTOMER) {
+        <span
+          [class]="'status-badge ' + statusView().class"
+        >
+          {{ statusView().label | translate }}
+        </span>
+      }
+    </div>
+
+    <div class="details-line">
+      <span class="details">
+        <img
+          class="line-icon"
+          src="assets/svg/calendar-green.svg"
+          alt=""
+          aria-hidden="true"
+        />
+
+        {{ r().startTime | localizedDate: 'mediumDate' }}
+      </span>
+
+      @if (
+        role() === Roles.WAITER &&
+        preOrderItemCount() > 0
+        ) {
+        <span class="preorder-badge">{{ 'Pre-order' | translate }}</span>
+      }
+    </div>
+
+    <div class="details-line">
+      <span class="details">
+        <img
+          class="line-icon"
+          src="assets/svg/clock-green.svg"
+          alt=""
+          aria-hidden="true"
+        />
+
+        {{ r().startTime | localizedDate: 'shortTime' }}
+        –
+        {{ r().endTime | localizedDate: 'shortTime' }}
+      </span>
+    </div>
+
+    @if (role() === Roles.WAITER) {
+      <div class="details-line">
+        <span class="details">
+          <img
+            class="line-icon"
+            src="assets/svg/person-green.svg"
+            alt=""
+            aria-hidden="true"
+          />
+
+          {{ creatorRole() | translate }} {{ creatorName() }}
+        </span>
+      </div>
+
+      <div class="details-line">
+        <span class="details">
+          <img
+            class="line-icon"
+            src="assets/svg/pre-order.svg"
+            alt=""
+            aria-hidden="true"
+          />
+
+          {{ 'Pre-order:' | translate }}
+          {{ preOrderItemCount() }}
+          {{
+            preOrderItemCount() === 1
+              ? ('dish' | translate)
+              : ('dishes' | translate)
+          }}
+        </span>
+      </div>
+    }
+
+    <div class="details-line">
+      <span class="details">
+        <img
+          class="line-icon"
+          src="assets/svg/people-green.svg"
+          alt=""
+          aria-hidden="true"
+        />
+
+        {{ r().guestCount }}
+        {{
+          r().guestCount === 1
+            ? ('Guest' | translate)
+            : ('Guests' | translate)
+        }}
+      </span>
+    </div>
+  </div>
+
+  <div class="actions">
+    @switch (r().status) {
+      @case (ReservationStatusCustomer.Reserved) {
+        <button
+          type="button"
+          class="button button--tertiary button--large"
+          (click)="cancelReservation.emit(r().id)"
+        >
+          {{ 'Cancel' | translate }}
+        </button>
+
+        @if (role() === Roles.CUSTOMER) {
+          <button
+            type="button"
+            class="button button--secondary button--large"
+            (click)="editReservation.emit(r())"
+          >
+            {{ 'Edit' | translate }}
+          </button>
+        }
+
+        @if (role() === Roles.WAITER) {
+          <button
+            type="button"
+            class="button button--secondary button--large"
+            (click)="postponeReservation.emit(r())"
+          >
+            {{ 'Postpone' | translate }}
+          </button>
+
+          @if (canOpenWaiterPreOrder()) {
+            <button
+              type="button"
+              class="button button--primary button--large"
+              (click)="onPreOrderWaiter()"
+            >
+              {{ 'Pre-order' | translate }}
+            </button>
+          }
+        } @else if (role() === Roles.CUSTOMER) {
+          <button
+            type="button"
+            class="button button--primary button--large"
+            (click)="onPreOrder()"
+          >
+            {{ r().guestCount >= 2 ? ('Group pre-order' | translate) : ('Pre-order' | translate) }}
+          </button>
+        }
+      }
+
+      @case (ReservationStatusCustomer.InProgress) {
+        <button
+          type="button"
+          class="button button--tertiary button--large"
+          (click)="cancelReservation.emit(r().id)"
+        >
+          {{ 'Cancel' | translate }}
+        </button>
+
+        @if (
+          role() === Roles.WAITER &&
+          canOpenWaiterPreOrder()
+          ) {
+          <button
+            type="button"
+            class="button button--primary button--large"
+            (click)="onPreOrderWaiter()"
+          >
+            {{ 'Pre-order' | translate }}
+          </button>
+        }
+      }
+    }
+
+    @if (role() === Roles.CUSTOMER) {
+      @if (
+        r().status !==
+        ReservationStatusCustomer.Reserved &&
+        r().status !==
+        ReservationStatusCustomer.Cancelled &&
+        !hasFullFeedback()
+        ) {
+        <button
+          type="button"
+          class="button button--secondary button--large"
+          (click)="leaveFeedbackReservation.emit(r())"
+        >
+          {{ 'Leave Feedback' | translate }}
+        </button>
+      }
+
+      @if (
+        r().status !==
+        ReservationStatusCustomer.Reserved &&
+        r().status !==
+        ReservationStatusCustomer.Cancelled &&
+        hasFullFeedback()
+        ) {
+        <button
+          type="button"
+          class="button button--secondary button--large"
+          (click)="updateFeedbackReservation.emit(r())"
+        >
+          {{ 'Update Feedback' | translate }}
+        </button>
+      }
+    }
+
+    @if (
+      role() === Roles.WAITER &&
+      r().status === ReservationStatusCustomer.Reserved
+      ) {
+      <button
+        type="button"
+        class="button button--secondary button--large"
+        (click)="
+          onStatusChange(
+            ReservationStatusCustomer.InProgress
+          )
+        "
+      >
+        {{ 'Start service' | translate }}
+      </button>
+    }
+
+    @if (
+      role() === Roles.WAITER &&
+      r().status ===
+      ReservationStatusCustomer.InProgress
+      ) {
+      <button
+        type="button"
+        class="button button--secondary button--large"
+        (click)="
+          onStatusChange(
+            ReservationStatusCustomer.Finished
+          )
+        "
+      >
+        {{ 'Finish service' | translate }}
+      </button>
+    }
+
+    @if (
+      role() === Roles.WAITER &&
+      (r().status ===
+        ReservationStatusCustomer.Finished ||
+        r().status ===
+        ReservationStatusCustomer.InProgress) &&
+      isAnonymous() &&
+      !hasFullFeedback()
+      ) {
+      <button
+        type="button"
+        class="button button--primary button--large"
+        (click)="sendAnonymousFeedback.emit(r())"
+      >
+        {{ 'Send feedback' | translate }}
+      </button>
+    }
+  </div>
+</li>
+
+@if (showWaiterOrderModal()) {
+  <app-place-order-waiter
+    [reservationId]="r().id"
+    [customerId]="r().customerId"
+    (closeModal)="closeWaiterOrderModal()"
+    (placeOrder)="onWaiterOrderCreated($event)"
+  />
+}

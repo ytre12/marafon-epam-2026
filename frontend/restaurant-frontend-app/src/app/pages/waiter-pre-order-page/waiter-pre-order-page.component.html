@@ -1,0 +1,40 @@
+<nav class="breadcrumb">
+  <a class="breadcrumb-link" routerLink="/waiter-reservations">{{ 'Reservations' | translate }}</a>
+  <span class="breadcrumb-separator">›</span>
+  <span class="breadcrumb-current">{{ 'Pre-order' | translate }}</span>
+</nav>
+
+<h2 class="title">
+  {{ 'Pre-order of' | translate }} {{ createdByRole.toLowerCase() }} {{ createdByName }}{{ ', Table' | translate }} {{ tableName }} ({{
+    reservationTime
+  }})
+</h2>
+<div class="preorder-list">
+  @for (item of orderItems; track item.dish.id) {
+    <app-dish-card
+      [dish]="item.dish"
+      (remove)="onRemove(item.dish.id)"
+      class="pre-order-dish"
+    >
+      <div dish-footer class="pre-order-footer">
+        <div class="pre-order-quantity">{{ 'Quantity:' | translate }} {{ item.quantity }}</div>
+        <div class="preorder-actions">
+          <app-custom-button
+            class="btn-cancel"
+            (click)="rejectDish(item.dish.id)"
+            [disabled]="item.state === 2"
+          >
+            {{ 'Cancel' | translate }}
+          </app-custom-button>
+          <app-custom-button
+            class="btn-confirm"
+            (click)="confirmDish(item.dish.id)"
+            [disabled]="item.state === 1"
+          >
+            {{ 'Confirm' | translate }}
+          </app-custom-button>
+        </div>
+      </div>
+    </app-dish-card>
+  }
+</div>

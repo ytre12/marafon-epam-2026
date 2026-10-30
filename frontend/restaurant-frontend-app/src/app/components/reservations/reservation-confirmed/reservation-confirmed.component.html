@@ -1,0 +1,113 @@
+<div
+  class="modal-backdrop"
+  role="presentation"
+  (click)="onBackdropClick($event)"
+  (keydown.escape)="onClose()"
+>
+  <section
+    class="confirmed-wrapper"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="reservation-confirmed-title"
+  >
+    <div class="header-confirmed">
+      <h2
+        id="reservation-confirmed-title"
+        class="confirmed-title"
+      >
+        {{ 'Reservation Confirmed!' | translate }}
+      </h2>
+
+      <button
+        type="button"
+        class="icon-button icon-button--small"
+        [attr.aria-label]="'Close reservation confirmation' | translate"
+        (click)="onClose()"
+      >
+        <img
+          src="assets/svg/close.svg"
+          alt=""
+          aria-hidden="true"
+          width="24"
+          height="24"
+        />
+      </button>
+    </div>
+
+    <div class="reservation-info">
+      <p>
+        {{ 'Your table reservation at' | translate }}
+
+        <strong class="bold-text">
+          {{ reservation().restaurantName }}
+        </strong>
+
+        {{ 'for' | translate }}
+
+        <strong class="bold-text">
+          {{ reservation().guestCount }} {{ 'people' | translate }}
+        </strong>
+
+        {{ 'on' | translate }}
+
+        <strong class="bold-text">
+          {{ reservation().startTime | localizedDate: 'MMM d, y' }}
+        </strong>{{ ', from' | translate }}
+
+        <strong class="bold-text">
+          {{ reservation().startTime | localizedDate: 'shortTime' }}
+        </strong>
+
+        {{ 'to' | translate }}
+
+        <strong class="bold-text">
+          {{ reservation().endTime | localizedDate: 'shortTime' }}
+        </strong>
+
+        {{ 'at' | translate }}
+
+        <strong class="bold-text">
+          {{ 'Table' | translate }} {{ reservation().tableId }}
+        </strong>
+
+        {{ 'has been successfully made.' | translate }}
+      </p>
+
+      <p
+        [class.cancelled-text]="
+          reservation().status === ReservationStatus.Cancelled
+        "
+      >
+        {{ 'We look forward to welcoming you at' | translate }}
+
+        <strong class="bold-text">
+          {{ reservation().locationAddress }}
+        </strong>.
+      </p>
+
+      <p>
+        {{ 'If you need to modify or cancel your reservation, you can do so up to 30 minutes before the reservation time.' | translate }}
+      </p>
+    </div>
+
+    <div class="confirmed-buttons">
+      <app-custom-button
+        type="button"
+        variant="secondary"
+        size="large"
+        (click)="onCancel()"
+      >
+        {{ 'Cancel Reservation' | translate }}
+      </app-custom-button>
+
+      <app-custom-button
+        type="button"
+        variant="primary"
+        size="large"
+        (click)="onEdit()"
+      >
+        {{ 'Edit Reservation' | translate }}
+      </app-custom-button>
+    </div>
+  </section>
+</div>

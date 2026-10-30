@@ -1,0 +1,28 @@
+<div class="modal-backdrop" role="presentation" (click)="onClose()">
+  <div class="modal-container" role="presentation" (click)="$event.stopPropagation()">
+    <div>
+      <div class="modal-header">
+        <h2 class="title">{{ 'Available slots' | translate }}</h2>
+        <button class="close-btn" (click)="onClose()">
+          <img src="assets/svg/close.svg" [alt]="'close button' | translate" />
+        </button>
+      </div>
+
+      <p class="subtitle">
+        {{ 'There are' | translate }} <span class="bold-text">{{ table.timeRanges.length }} {{ 'slots' | translate }}</span> {{ 'available at' | translate }}
+        <span class="bold-text">{{ locationName }}{{ ', Table' | translate }} {{ table.id }}</span> {{ 'for' | translate }}
+        <span class="bold-text">{{ date | localizedDate: 'MMM d, y' }}</span
+        >{{ '. There are' | translate }} <span class="bold-text">{{ table.timeRanges.length }} {{ 'slots' | translate }}</span> {{ 'available at' | translate }}
+        <span class="bold-text">{{ locationName }}{{ ', Table' | translate }} {{ table.tableNumber }}</span> {{ 'for' | translate }}
+        <span class="bold-text">{{ date | localizedDate: 'MMM d, y' }}</span
+        >.
+      </p>
+    </div>
+
+    <div class="time-slots-list">
+      @for (slot of table.timeRanges; track slot.start) {
+        <app-time-slot (click)="onTimeSlotSelected(slot)" [timeRange]="slot"></app-time-slot>
+      }
+    </div>
+  </div>
+</div>
