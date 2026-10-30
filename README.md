@@ -1,311 +1,162 @@
-# Deployment Guide
+# Доробки ресторанного застосунку у межах IT марафону від EPAM
 
-This repo uses three deployment tracks:
+Цей документ описує зміни, внесені до отриманого навчального проєкту ресторанного застосунку. Початкова версія вже містила Angular-фронтенд, бекенд на C# / .NET, роботу з бронюваннями й передзамовленнями та конфігурацію AWS. Під час доопрацювання розширено групові передзамовлення, додано двомовний інтерфейс, покращено перегляд страв і керування бронюваннями, виправлено переходи з кошика та обмежено паралельне завантаження відгуків.
 
-- Terraform for shared AWS infrastructure under `infra/terraform`
-- AWS Syndicate for the backend application under `backend/restaurant-backend-app`
-- Angular build artifacts synced to the frontend S3 bucket under `frontend/restaurant-frontend-app`
+## 1. Повний сценарій групового передзамовлення
 
-## Prerequisites
+Розширено наявну основу групових замовлень: реалізовано серверні операції та інтерфейс організатора, які дозволяють зібрати вибір усіх учасників в одне передзамовлення для офіціанта.
 
-Install the tools below on your machine:
+### Як користуватися
 
-- AWS CLI configured with credentials for the target AWS account (`aws configure`) (https://docs.aws.amazon.com/cli/latest/userguide/getting-started-prereqs.html)
-- Terraform 1.10 or newer (https://developer.hashicorp.com/terraform/install)
-- Python 3.10-3.11 (https://www.python.org/downloads/release/python-3110/)
-- .NET 10 SDK (https://dotnet.microsoft.com/en-us/download/dotnet/10.0)
-- AWS Syndicate (`pip install aws-syndicate`) (https://github.com/epam/aws-syndicate)
-- Node.js 22.x with npm (https://nodejs.org/en/download/archive/v22.0.0)
+1. Користувач створює бронювання на **двох або більше гостей**. Для редагування передзамовлення до початку бронювання має залишатися понад 30 хвилин.
+2. На сторінці **«Бронювання»** натискає **«Групове передзамовлення»** на картці потрібного бронювання.
+3. На сторінці групи бачить посилання-запрошення, список учасників, обрані ними страви, кількості та індивідуальні суми. Посилання можна скопіювати й передати гостям.
+4. Гість відкриває запрошення, вводить ім’я, обирає страви та натискає **«Підтвердити передзамовлення»** у своєму кошику.
+5. Організатор додає власні страви у блоці **«Мої страви»** кнопками **«+» / «−»**, після чого натискає **«Підтвердити мій кошик»**.
+6. Кнопка **«Оновити список учасників»** завантажує актуальні дані.
+7. Організатор натискає **«Підтвердити групове замовлення»**, переглядає попередження про непідтверджені кошики та завершує дію кнопкою **«Підтвердити та надіслати»**.
+8. Спільне замовлення переходить до наявного сценарію перевірки офіціантом. Після остаточного підтвердження редагування групи блокується.
 
-## Deployment order
+### Що показує сторінка групи
 
-Use this order:
+- Організатора та гостьові сесії учасників.
+- Страви й кількості в кожній сесії.
+- Статус подання кошика кожного учасника.
+- Суму кожного учасника та загальну суму всіх вибраних страв.
+- Окрему суму лише поданих кошиків — саме вони потраплять у фінальне замовлення.
+- Кількість учасників, які ще не подали кошик.
 
-1. Deploy Terraform infrastructure
-2. Deploy the backend using Syndicate
-3. Deploy the frontend to s3
+Організатор може натиснути **«Видалити гостя»**, а потім **«Видалити гостя та його страви»**. Після підтвердження список учасників і суми оновлюються, а видалена сесія припиняє працювати. Видалити організатора цим способом не можна.
 
-Terraform then provisions or updates the shared AWS foundation, including the frontend S3 bucket and CloudFront distribution. Syndicate packages and deploys the backend application stack. After that, build the Angular app with the correct backend URL and sync it to S3.
+### Як реалізовано
 
-## 1. Deploy Terraform infrastructure
+На фронтенді додано сторінку керування групою та сервіс звернення до відповідних API. На бекенді реалізовано отримання учасників, доступ до сесії організатора, керування його стравами, видалення гостя та фінальне підтвердження групи.
 
-Terraform manages the shared infrastructure resources in `infra/terraform`.
+Основні операції API:
 
-Before deploying, verify terraform config files:
-Replace variables with your **AWS account ID** and **Email**
+| Метод    | Маршрут                                                        | Призначення                            |
+| -------- | -------------------------------------------------------------- | -------------------------------------- |
+| `GET`    | `/guest/groups/{groupReservationId}/sessions`                  | Учасники, їхні страви, статуси й суми  |
+| `GET`    | `/reservations/{reservationId}/guest-session-id`               | Сесія організатора та стан групи       |
+| `POST`   | `/group-reservations/{groupReservationId}/submit`              | Підтвердження спільного замовлення     |
+| `DELETE` | `/guest/groups/{groupReservationId}/sessions/{guestSessionId}` | Видалення гостя й оновлений стан групи |
 
-- `infra/terraform/backend.tf` - replace the Terraform state bucket name
-- `infra/terraform/variables.tf` - replace the default `account_id` and `alert_emails`
+Для організатора також передбачені маршрути `owner-session/menu`, `owner-session/dishes` та `owner-session/submit` у межах відповідного бронювання.
 
+Під час фінального підтвердження бекенд:
 
-Before running `terraform init`, create the Terraform state bucket with AWS CLI if it does not already exist. 
-Get your AWS account ID from the CLI first:
+- включає лише сесії, подані учасниками;
+- об’єднує однакові страви за `dishId` і підсумовує їхні кількості;
+- перевіряє права організатора, стан групи та можливість редагування;
+- записує спільне замовлення й стан групи в одній транзакції DynamoDB;
+- використовує перевірки ревізій, щоб не підтвердити застарілий склад групи при одночасних змінах.
 
-Windows PowerShell:
+Організатор використовує звичайну авторизацію Cognito. Гостьові токени не надають права керувати всією групою.
 
-```powershell
-$ACCOUNT_ID = aws sts get-caller-identity --query Account --output text
-```
+## 2. Українська й англійська мови інтерфейсу
 
-Linux or macOS:
+Додано перемикач **EN / УКР**, який одразу змінює мову основного інтерфейсу: навігації, кнопок, форм, меню, бронювань, кошика та групових замовлень.
 
-```bash
-ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-```
+### Як це працює для користувача
 
-You can use AWS Console interface
-AWS Management Console equivalent:
-- Go to **S3** → **Create bucket** and use the bucket name **restaurant-terraform-state-$ACCOUNT_ID**
-- Turn on **Versioning** in the bucket properties
-- Leave **Block all public access** enabled
-- Use **Default encryption** with SSE-S3 (AES256)
+1. Користувач обирає **EN** або **УКР**.
+2. Підписи інтерфейсу змінюються без перезавантаження сторінки.
+3. Після перезавантаження сайт відновлює попередній вибір у цьому браузері.
 
-As alternative you can you AWS CLI
-Replace the bucket name with the CLI variable:
+### Як реалізовано
 
-Windows PowerShell:
+Двомовність реалізована **повністю на фронтенді**:
 
-```powershell
-aws s3api create-bucket `
-	--bucket restaurant-terraform-state-$ACCOUNT_ID `
-	--region eu-north-1 `
-	--create-bucket-configuration LocationConstraint=eu-north-1
+- `LanguageService` зберігає поточну мову через Angular Signal.
+- Українські переклади містяться у словнику `uk.ts`; англійські тексти є початковими ключами.
+- `TranslatePipe` підставляє відповідний текст у шаблонах.
+- Вибір записується в `localStorage` за ключем `restaurant.interface-language`.
+- За відсутності збереженого вибору використовується англійська мова.
+- Оновлюється атрибут `lang` HTML-документа, а дати локалізуються через `LocalizedDatePipe`.
 
-aws s3api put-bucket-versioning `
-	--bucket restaurant-terraform-state-$ACCOUNT_ID `
-	--versioning-configuration Status=Enabled
+Бекенд не зберігає мовні налаштування. Назви й описи страв, адреси закладів, імена користувачів та інший вміст бази відображаються в оригіналі. Якщо сховище браузера недоступне, перемикач працює в поточному сеансі, але вибір може не зберегтися.
 
-aws s3api put-public-access-block `
-		--bucket restaurant-terraform-state-$ACCOUNT_ID `
-	--public-access-block-configuration `
-		"BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true"
-```
+## 3. Фільтрація та сортування бронювань
 
-Linux or macOS:
+На сторінці бронювань додано елементи керування, які дозволяють швидко знайти потрібні записи.
 
-```bash
-aws s3api create-bucket \
-	--bucket restaurant-terraform-state-$ACCOUNT_ID \
-	--region eu-north-1 \
-	--create-bucket-configuration LocationConstraint=eu-north-1
+| Елемент         | Варіанти                                                           |
+| --------------- | ------------------------------------------------------------------ |
+| Стан бронювання | Усі, заброньовано, триває, завершено, скасовано                    |
+| Тип бронювання  | Усі, групові — від двох гостей, одиночні — один гість              |
+| Сортування      | Початковий порядок, за станом, спочатку групові, спочатку одиночні |
 
-aws s3api put-bucket-versioning \
-	--bucket restaurant-terraform-state-$ACCOUNT_ID \
-	--versioning-configuration Status=Enabled
+Фільтри працюють разом. Наприклад, можна одночасно вибрати стан **«Заброньовано»** та тип **«Групові»**. Сортування за станом використовує порядок: заброньовано → триває → завершено → скасовано.
 
-aws s3api put-public-access-block \
-		--bucket restaurant-terraform-state-$ACCOUNT_ID \
-	--public-access-block-configuration \
-		"BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true"
-```
+Додано кількість знайдених записів відносно загальної кількості, повідомлення про відсутність збігів і кнопку **«Скинути фільтри»**, яка також повертає початкове сортування.
 
-### After bucket creation
-```bash
-cd ../../infra/terraform
-terraform init
-terraform fmt -check -recursive
-terraform validate
-terraform plan
-terraform apply -auto-approve
-```
+Фільтрація й сортування виконуються на фронтенді над уже отриманими даними. Вони не змінюють записи в DynamoDB та не потребують окремого запиту при кожному виборі фільтра. Після оновлення стану або кількості гостей результати перераховуються. Підписи підтримують українську й англійську мови.
 
-## 2. Deploy the backend with Syndicate
+## 4. Адаптація розгортання для AWS Stockholm
 
-The backend app is deployed from `backend/restaurant-backend-app`.
+Початкова конфігурація орієнтувалася на **US West (Oregon), `us-west-2`**. Конфігурацію проєкту адаптовано, а регіональні ресурси розгорнуто в **Europe (Stockholm), `eu-north-1`**.
 
-Before deploying, verify the Syndicate config files:
-edit syndicate.yml → set project_path to your local absolute path to backend/restaurant-backend-app
-Replace bucket names with your AWS account ID
-- `.syndicate-config-restaurant-backend-app/syndicate.yml`
-- `.syndicate-config-restaurant-backend-app/syndicate_aliases.yml`
+Оновлено регіональні параметри Terraform і Syndicate, використані під час розгортання, посилання на ресурси та конфігурацію підключення фронтенду до API в Стокгольмі.
 
-On Windows PowerShell, run:
+Збережено три окремі процеси розгортання:
 
-```powershell
-cd ../../backend/restaurant-backend-app
-python3 -m venv syndicate_venv
-.\syndicate_venv\Scripts\Activate.ps1
-pip install aws-syndicate
-$env:SDCT_CONF = (Resolve-Path ".\.syndicate-config-restaurant-backend-app").Path
-syndicate create-deploy-target-bucket
-syndicate build
-syndicate deploy --deploy_name dev
-```
+| Частина        | Інструмент і призначення                                             |
+| -------------- | -------------------------------------------------------------------- |
+| Інфраструктура | Terraform: S3, CloudFront, Cognito, SQS, IAM і розклад               |
+| Бекенд         | AWS Syndicate: збирання та публікація Lambda й описаних ресурсів API |
+| Фронтенд       | Збірка Angular, завантаження файлів у S3 та очищення кешу CloudFront |
 
-On Linux or macOS, run:
+Фронтенд отримує адресу бекенду через змінну `BACKEND_URL` під час production-збірки. Користувач відкриває сайт через CloudFront, а запити до даних надсилаються в API Gateway, який викликає Lambda. Бекенд працює з таблицями DynamoDB та іншими сервісами AWS.
 
-```bash
-cd ../../backend/restaurant-backend-app
-python3 -m venv syndicate_venv
-source syndicate_venv/bin/activate
-export SDCT_CONF="$(pwd)/.syndicate-config-restaurant-backend-app"
-syndicate create-deploy-target-bucket
-syndicate build
-syndicate deploy --deploy_name dev
-```
+## 5. Деталі страв у модальному вікні
 
-For an incremental update instead of a full deploy, run the matching command for your shell.
+Розширено й підключено спільний компонент модального вікна страви. На головній сторінці перегляд популярної страви більше не потребує переходу на окрему сторінку.
 
-```
-syndicate update
-```
+Кнопка **«Детальніше про страву»** доступна:
 
-## 3. Deploy the frontend
+- на головній сторінці серед популярних страв;
+- у меню, зокрема під час вибору страв для звичайного передзамовлення;
+- у меню гостьового передзамовлення;
+- у підказках вибору страв під час створення замовлення офіціантом.
 
-This section describes the manual deployment flow. It does not use GitHub Actions.
+### Сценарій перегляду
 
-Terraform creates and configures everything needed for frontend hosting:
+Після натискання кнопки відкривається вікно поверх поточної сторінки. Воно завантажує повну інформацію через `GET /dishes/{id}` і показує фото, назву, опис, калорійність, білки, жири, вуглеводи, вітаміни та мінерали, ціну й вагу порції.
 
-- the private frontend S3 bucket
-- the bucket policy that allows CloudFront to read from it
-- the CloudFront distribution that serves the site
+Для відсутніх значень використовується підпис **«Не вказано»**. До числових значень харчової цінності додаються одиниці вимірювання; вже зазначені в даних одиниці не дублюються.
 
-You do not need to configure the bucket manually after `terraform apply`. The manual part is only building the frontend and uploading the files to S3.
+Передбачено стан завантаження й повідомлення про помилку запиту. Вікно закривається кнопкою **«×»**, натисканням поза ним або клавішею **Escape**. Фокус клавіатури утримується всередині вікна й повертається до кнопки після закриття. На невисоких екранах вміст можна прокручувати.
 
-### 3.1 Get the backend URL
+Перегляд деталей не додає страву до замовлення: дія додавання залишається окремою. У кошику кнопки деталей не додавалися.
 
-Use the deployed API Gateway base URL as `BACKEND_URL`. Example:
+## 6. Виправлення роботи кошика та переходів до передзамовлення
 
-```text
-https://<api-id>.execute-api.eu-north-1.amazonaws.com/develop
-```
+Виправлено сценарій, у якому натискання **«Додати страву»** з кошика відкривало звичайне меню без контексту бронювання, а сам кошик залишався поверх сторінки.
 
-The production frontend build will fail unless `BACKEND_URL` is set.
+### Поточна поведінка
 
-To look it up in AWS:
+1. Користувач відкриває кошик і натискає **«Додати страву»** біля потрібного передзамовлення.
+2. Фронтенд отримує дані відповідного бронювання.
+3. Для одиночного бронювання кошик закривається й відкривається меню з параметрами `preOrder`, `reservationId` та підписом бронювання.
+4. Для бронювання від двох гостей відкривається сторінка групового передзамовлення.
+5. Якщо дані бронювання не вдалося отримати, кошик залишається відкритим і показує помилку замість переходу до меню з невідомим контекстом.
 
-```powershell
-aws apigateway get-rest-apis --region eu-north-1 --query "items[?name=='restaurant-backend-api'].{name:name,id:id}" --output table
-```
+Це усуває помилковий сценарій, коли групове замовлення надсилалося на звичайний маршрут редагування `/orders/{reservationId}`. Бекенд розділяє ці сценарії та вимагає керувати групою через її сторінку.
 
-Or set variables from AWS CLI:
+Також виправлено показ помилок під час додавання страв: фронтенд більше не підміняє пояснення сервера загальним повідомленням Angular `Http failure response`. Завдяки цьому користувач бачить причину відмови, наприклад закритий час редагування або недоступність страви.
 
-Windows PowerShell:
+Роботу й відображення кошика перевірено для завантаження списку, порожнього стану, закриття та переходу до додавання страв. У фінальному інтерфейсі залишено списки передзамовлень; експериментальний окремий блок групових бронювань із кошика видалено.
 
-```powershell
-$API_ID = aws apigateway get-rest-apis --region eu-north-1 --query "items[?name=='restaurant-backend-api'].id | [0]" --output text
-$env:BACKEND_URL = "https://$API_ID.execute-api.eu-north-1.amazonaws.com/develop"
-```
+## 7. Стабільніше завантаження бронювань і відгуків
 
-Linux or macOS:
+Під час відкриття списку бронювань фронтенд додатково завантажує відгуки для кожного запису. Раніше ці запити запускалися одночасно. За великої кількості бронювань це створювало сплеск викликів Lambda й могло спричиняти відмови через обмеження паралельних виконань. У браузері такі відповіді також відображалися як помилки CORS та `Unknown Error`.
 
-```bash
-API_ID=$(aws apigateway get-rest-apis --region eu-north-1 --query "items[?name=='restaurant-backend-api'].id | [0]" --output text)
-export BACKEND_URL="https://$API_ID.execute-api.eu-north-1.amazonaws.com/develop"
-```
+Змінено лише спосіб завантаження відгуків:
 
-### 3.2 Build the production bundle
+- одночасно виконуються **не більше трьох запитів**;
+- після завершення одного запиту запускається наступний;
+- початковий порядок бронювань зберігається незалежно від порядку відповідей;
+- помилка окремого відгуку не перериває завантаження решти списку;
+- при закритті сторінки активні підписки скасовуються.
 
-From the frontend app directory, install dependencies and build:
-
-```powershell
-cd ../../frontend/restaurant-frontend-app
-npm ci
-npm run build
-```
-
-The build process generates `src/environments/environment.production.ts` automatically from `BACKEND_URL` and writes the production bundle to `dist/restaurant-frontend-app/browser`.
-
-### 3.3 Upload the bundle to S3
-
-Sync the built files to the frontend bucket:
-
-```powershell
-aws s3 sync dist/restaurant-frontend-app/browser s3://restaurant-frontend-$ACCOUNT_ID/ --delete
-```
-
-The `--delete` flag removes files in S3 that no longer exist in the local build output.
-
-### 3.4 Get the frontend URL
-
-Get the CloudFront domain name from Terraform:
-
-```powershell
-cd ../../infra/terraform
-terraform output cloudfront_distribution_domain_name
-terraform output cloudfront_distribution_id
-```
-
-Use the returned domain name as the frontend host. Example:
-
-```text
-https://dxxxxxxxxxxxx.cloudfront.net
-```
-
-CloudFront does not provide a fixed public IP you should use. Use the distribution domain name instead.
-
-## Clean up all resources
-
-Use the reverse order of deployment:
-
-1. Remove uploaded frontend files from the frontend S3 bucket
-2. Clean up the backend resources deployed by Syndicate
-3. Destroy the shared infrastructure managed by Terraform
-4. Remove the Terraform state bucket
-5. Remove the Syndicate artifacts bucket
-
-### Remove frontend files from S3
-
-The frontend bucket must be empty before Terraform can destroy it.
-
-```powershell
-aws s3 rm s3://restaurant-frontend-$ACCOUNT_ID/ --recursive
-```
-
-If you are not using the shared training account, replace the bucket name with your own account-specific frontend bucket.
-
-### Clean up backend resources with Syndicate
-
-From the backend project directory, use the same Syndicate configuration and run:
-
-```powershell
-cd ../../backend/restaurant-backend-app
-$env:SDCT_CONF = (Resolve-Path ".\.syndicate-config-restaurant-backend-app").Path
-syndicate clean
-```
-
-On Linux or macOS, use:
-
-```bash
-cd ../../backend/restaurant-backend-app
-export SDCT_CONF="$(pwd)/.syndicate-config-restaurant-backend-app"
-syndicate clean
-```
-
-This removes the backend resources that Syndicate deployed into the AWS account.
-
-### Destroy Terraform-managed infrastructure
-
-After the frontend bucket is empty and the backend resources are removed, destroy the shared infrastructure:
-
-```powershell
-cd ../../infra/terraform
-terraform destroy -auto-approve
-```
-
-This removes the frontend S3 bucket, CloudFront distribution, and the rest of the infrastructure managed in `infra/terraform`.
-
-### Clear versioned bucket
-
-S3 bucket for storing terraform state have versioning configured. In order to delete it you must empty all versions created for s3 object.
-
-- Go to **S3** select **restaurant-terraform-state-$ACCOUNT_ID** → **Empty Bucket**
-
-### Remove the Terraform state bucket
-
-The Terraform state bucket is configured in `infra/terraform/backend.tf` and is not deleted by `terraform destroy`. Empty it first and then delete it manually:
-
-```powershell
-aws s3api delete-bucket --bucket restaurant-terraform-state-$ACCOUNT_ID --region eu-north-1
-```
-
-### Remove the Syndicate artifacts bucket
-
-The Syndicate deploy target bucket is not managed by Terraform in this repo. If you also want to delete that bucket, empty it first and then remove it manually:
-
-```powershell
-aws s3 rm s3://marathon2026-restaurant-artifacts-$ACCOUNT_ID/ --recursive
-aws s3api delete-bucket --bucket marathon2026-restaurant-artifacts-$ACCOUNT_ID --region eu-north-1
-```
-
-Only do this if you are sure you no longer need the stored Syndicate build artifacts.
+Реалізація використовує RxJS `mergeMap` з обмеженням паралельності `3`, збирання результатів і відновлення їхнього порядку за початковими індексами. Це зменшує навантаження від однієї відкритої сторінки. Налаштування CORS та ліміти AWS у межах цього виправлення не змінювалися.
